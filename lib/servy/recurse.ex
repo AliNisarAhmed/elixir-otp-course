@@ -1,4 +1,24 @@
 defmodule Recurse do
+
+  @ranks ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
+  @suits ["♣", "♦", "♥", "♠"]
+
+  def getDeckCompre() do
+    for r <- @ranks, s <- @suits, do: { r, s}
+  end
+
+  def getHand() do
+    getDeckCompre()
+    |> Enum.shuffle()
+    |> Enum.take(13)
+  end
+
+  def getFourHands() do
+    getDeckCompre()
+    |> Enum.shuffle()
+    |> Enum.chunk_every(13)
+  end
+
   def sum([head | tail], sum) do
     sum(tail, sum + head)
   end
@@ -20,4 +40,6 @@ defmodule Recurse do
   end
 
   def my_map([], _), do: []
+
+
 end

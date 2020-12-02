@@ -120,19 +120,6 @@ expected_response = response = Servy.Handler.handle(request)
 
 IO.puts(response)
 
-## ---
-
-request = """
-GET /bears HTTP/1.1
-Host: example.com
-User-Agent: ExampleBrowser/1.0
-Accept: */*
-
-"""
-
-expected_response = response = Servy.Handler.handle(request)
-
-IO.puts(response)
 
 ## -----
 
@@ -257,6 +244,20 @@ Content-Type: application/x-www-form-urlencoded
 Content-Length: 21
 
 name=Baloo&type=Brown
+"""
+
+expected_response = response = Servy.Handler.handle(request)
+
+IO.puts(response)
+
+## ---
+
+request = """
+GET /bears HTTP/1.1
+Host: example.com
+User-Agent: ExampleBrowser/1.0
+Accept: */*
+
 """
 
 expected_response = response = Servy.Handler.handle(request)
