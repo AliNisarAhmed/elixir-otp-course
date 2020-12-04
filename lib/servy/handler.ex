@@ -22,11 +22,16 @@ defmodule Servy.Handler do
     |> log
     |> route
     |> track
+    |> put_content_length
     |> format_response
   end
 
   def route(%Conv{method: "GET", path: "/wildthings"} = conv) do
     %{conv | resp_body: "Bears, Lions, Tigers", status: 200}
+  end
+
+  def route(%Conv{method: "GET", path: "/api/bears"} = conv) do
+    Servy.Api.BearController.index(conv)
   end
 
   def route(%Conv{method: "GET", path: "/bears"} = conv) do
@@ -51,6 +56,10 @@ defmodule Servy.Handler do
 
   def route(%Conv{method: "POST", path: "/bears"} = conv) do
     BearController.create(conv, conv.params)
+  end
+
+  def route(%Conv{method: "POST", path: "/api/bears"} = conv) do
+    Servy.Api.BearController.create(conv, conv.params)
   end
 
   def route(%Conv{method: "GET", path: "/about"} = conv) do
@@ -79,6 +88,15 @@ defmodule Servy.Handler do
     |> handle_file(conv)
   end
 
+  def route(%Conv{method: "GET", path: "/pages/faq"} = conv) do
+    @pages_path
+    |> Path.join("faq.md")
+    |> File.read()
+    |> handle_file(conv)
+    |> markdown_to_html()
+
+  end
+
   def route(%Conv{method: "GET", path: "/pages/" <> file} = conv) do
     @pages_path
     |> Path.join(file <> ".html")
@@ -93,10 +111,35 @@ defmodule Servy.Handler do
   def format_response(%Conv{} = conv) do
     """
     HTTP/1.1 #{Conv.full_status(conv)}\r
-    Content-Type: text/html\r
-    Content-Length: #{String.length(conv.resp_body)}\r
+    #{format_response_headers(conv.resp_headers)}
     \r
     #{conv.resp_body}
     """
   end
+
+  def put_content_length(%{resp_body: resp_body} = conv) do
+    new_resp_headers = Map.put(conv, "Content-Length", String.length(resp_body))
+    %{conv | resp_headers: new_resp_headers}
+  end
+
+  def format_response_headers(conv) do
+    conv.resp_headers
+    |> Enum.map(fn {k, v} -> "#{k}: #{v}\r" end)
+    |> Enum.sort()
+    |> Enum.reverse()
+    |> Enum.join("\n")
+
+    # for {key, value} <- conv.resp_headers do
+    #   "#{key}: #{value}\r"
+    # end
+    # |> Enum.sort()
+    # |> Enum.reverse()
+    # |> Enum.join("\n")
+  end
+
+  def markdown_to_html(%Conv{status: 200} = conv) do
+    %{conv | resp_body: Earmark.as_html!(conv.resp_body)}
+  end
+
+  def markdown_to_html(conv), do: conv
 end
