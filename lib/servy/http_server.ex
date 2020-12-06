@@ -26,13 +26,21 @@ defmodule Servy.HttpServer do
 
     IO.puts("🌩 Connection accepted!\n")
 
-    serve(client_socket)
+    pid = spawn(fn () -> serve(client_socket) end)
+
+    # making the serve process the controlling process of client_socket
+    # without this, the socket's controlling process will be the process which called accept_loop
+    :ok = :gen_tcp.controlling_process(client_socket, pid)
 
     accept_loop(listen_socket)
   end
 
   # receievs requuest and sends the response back on the same socket
   def serve(client_socket) do
+    # to check which process the server function is running in
+
+    IO.puts "#{inspect self()}: Working on it!"
+
     client_socket
     |> read_request
     |> Servy.Handler.handle
@@ -57,6 +65,7 @@ defmodule Servy.HttpServer do
     :gen_tcp.close(client_socket)
   end
 
+  # Http Client
   def send_request(request) do
     someHostInNet = 'localhost'
 
@@ -78,5 +87,7 @@ defmodule Servy.HttpServer do
 
     response
   end
+
+
 
 end
