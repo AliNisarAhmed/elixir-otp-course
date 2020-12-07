@@ -30,7 +30,7 @@ defmodule Servy.HttpServer do
 
     # making the serve process the controlling process of client_socket
     # without this, the socket's controlling process will be the process which called accept_loop
-    :ok = :gen_tcp.controlling_process(client_socket, pid)
+    # :ok = :gen_tcp.controlling_process(client_socket, pid)
 
     accept_loop(listen_socket)
   end

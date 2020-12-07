@@ -11,6 +11,7 @@ defmodule Servy.Handler do
 
   alias Servy.Conv
   alias Servy.BearController
+  alias Servy.VideoCam
 
   @doc """
   Transforms the request into a response
@@ -26,7 +27,24 @@ defmodule Servy.Handler do
     |> format_response
   end
 
-  def route(%Conv{method: "GET", path: "/kaboom"} = conv) do
+  def route(%Conv{method: "GET", path: "/snapshots" } = conv) do
+
+    parent = self() # the request-handling process, the one that runs the handler function
+
+    spawn(fn -> send(parent, VideoCam.get_snapshot("cam-1")) end)
+    spawn(fn -> send(parent, VideoCam.get_snapshot("cam-2")) end)
+    spawn(fn -> send(parent, VideoCam.get_snapshot("cam-3")) end)
+
+    snapshot1 = receive do {:result, filename} -> filename end
+    snapshot2 = receive do {:result, filename } -> filename end
+    snapshot3 = receive do {:result, filename } -> filename end
+
+    snapshots = [snapshot1, snapshot2, snapshot3]
+
+    %{conv | status: 200, resp_body: inspect snapshots}
+  end
+
+  def route(%Conv{method: "GET", path: "/kaboom"} = _conv) do
     raise "Kaboom!"
   end
 
