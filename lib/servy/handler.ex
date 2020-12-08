@@ -12,6 +12,7 @@ defmodule Servy.Handler do
   alias Servy.Conv
   alias Servy.BearController
   alias Servy.VideoCam
+  alias Servy.View, only: [render: 3]
 
   @doc """
   Transforms the request into a response
@@ -27,32 +28,31 @@ defmodule Servy.Handler do
     |> format_response
   end
 
-  def route(%Conv{method: "GET", path: "/snapshots" } = conv) do
+  def route(%Conv{method: "GET", path: "/sensors"} = conv) do
+    task = Task.async(fn -> Servy.Tracker.get_location("bigfoot") end)
 
-    parent = self() # the request-handling process, the one that runs the handler function
+    snapshots =
+      ["cam-1", "cam-2", "cam-2"]
+        |> Enum.map(&Task.async(fn -> VideoCam.get_snapshot(&1) end))
+        |> Enum.map(&Task.await/1)
 
-    spawn(fn -> send(parent, VideoCam.get_snapshot("cam-1")) end)
-    spawn(fn -> send(parent, VideoCam.get_snapshot("cam-2")) end)
-    spawn(fn -> send(parent, VideoCam.get_snapshot("cam-3")) end)
+    location = Task.await(task)
 
-    snapshot1 = receive do {:result, filename} -> filename end
-    snapshot2 = receive do {:result, filename } -> filename end
-    snapshot3 = receive do {:result, filename } -> filename end
 
-    snapshots = [snapshot1, snapshot2, snapshot3]
-
-    %{conv | status: 200, resp_body: inspect snapshots}
+    # %{conv | status: 200, resp_body: inspect({snapshots, location})}
+    View.render(conv, "sensors.eex", snapshots: snapshots, location: location)
   end
 
   def route(%Conv{method: "GET", path: "/kaboom"} = _conv) do
     raise "Kaboom!"
   end
 
-  def route(%Conv{ method: "GET", path: "/hibernate/" <> time } = conv) do
-    time |> String.to_integer |> :timer.sleep
+  def route(%Conv{method: "GET", path: "/hibernate/" <> time} = conv) do
+    time |> String.to_integer() |> :timer.sleep()
 
-    %{ conv | status: 200, resp_body: "Awake!" }
+    %{conv | status: 200, resp_body: "Awake!"}
   end
+
   def route(%Conv{method: "GET", path: "/wildthings"} = conv) do
     %{conv | resp_body: "Bears, Lions, Tigers", status: 200}
   end
@@ -121,7 +121,6 @@ defmodule Servy.Handler do
     |> File.read()
     |> handle_file(conv)
     |> markdown_to_html()
-
   end
 
   def route(%Conv{method: "GET", path: "/pages/" <> file} = conv) do
