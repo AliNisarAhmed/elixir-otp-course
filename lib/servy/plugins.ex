@@ -3,6 +3,7 @@ defmodule Servy.Plugins do
   require Logger
 
   alias Servy.Conv
+  alias Servy.FourOhFourCounter
 
 
   def log(%Conv{} = conv) do
@@ -36,6 +37,8 @@ defmodule Servy.Plugins do
       Logger.info("Tracking with Logger")
       Logger.warn("This is a warning")
       Logger.error("This is an error")
+
+      FourOhFourCounter.bump_count(path)
     end
     conv
   end

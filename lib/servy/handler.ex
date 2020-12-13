@@ -12,7 +12,8 @@ defmodule Servy.Handler do
   alias Servy.Conv
   alias Servy.BearController
   alias Servy.VideoCam
-  alias Servy.View, only: [render: 3]
+  alias Servy.View
+  alias Servy.FourOhFourCounter
 
   @doc """
   Transforms the request into a response
@@ -26,6 +27,14 @@ defmodule Servy.Handler do
     |> track
     |> put_content_length
     |> format_response
+  end
+
+  def route(%Conv{method: "GET", path: "/pledges"} = conv) do
+    Servy.PledgeController.index(conv)
+  end
+
+  def route(%Conv{method: "POST", path: "/pledges"} = conv) do
+    Servy.PledgeController.create(conv, conv.params)
   end
 
   def route(%Conv{method: "GET", path: "/sensors"} = conv) do
@@ -128,6 +137,12 @@ defmodule Servy.Handler do
     |> Path.join(file <> ".html")
     |> File.read()
     |> handle_file(conv)
+  end
+
+  def route(%Conv{method: "GET", path: "/404s"} = conv) do
+    counts = FourOhFourCounter.get_counts()
+
+    %{conv | status: 200, resp_body: "#{inspect counts}"}
   end
 
   def route(%Conv{} = conv) do
