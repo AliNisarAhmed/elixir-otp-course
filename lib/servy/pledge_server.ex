@@ -1,47 +1,10 @@
-defmodule Servy.GenericServer do
-
-  def start(callback_module, initial_state, name) do
-    IO.puts "Starting the pledge server"
-    pid = spawn(__MODULE__, :listen_loop, [callback_module, initial_state])
-    Process.register(pid, name)
-    pid
-  end
-
-  def call(pid, message) do
-    send(pid, {:call, self(), message})
-
-    receive do {:response, response} -> response end
-  end
-
-  def cast(pid, message) do
-    send(pid, {:cast, message})
-  end
-
-   # Server functions
-  def listen_loop(callback_module, state) do
-    receive do
-
-      {:call, sender, message} when is_pid(sender) ->
-        {response, new_state} = callback_module.handle_call(message, state)
-        send(sender, response)
-        listen_loop(callback_module, new_state)
-
-      {:cast, message} ->
-        new_state = callback_module.handle_cast(message, state)
-        listen_loop(callback_module, new_state)
-
-      unexpected ->
-        IO.puts "Unexpected message #{inspect unexpected}"
-        listen_loop(callback_module, state)
-    end
-
-  end
-
-end
-
 defmodule Servy.PledgeServer do
 
-  alias Servy.GenericServer
+  use GenServer
+
+  defmodule State do
+    defstruct cache_size: 3, pledges: []
+  end
 
   @process_name :pledge_server
   @url "https://httparrot.herokuapp.com/post"
@@ -49,46 +12,73 @@ defmodule Servy.PledgeServer do
   # Client facing functions
 
   def start do
-    GenericServer.start(__MODULE__, [], @process_name)
+    GenServer.start(__MODULE__, %State{}, name: @process_name)
   end
 
   def create_pledge(name, amount) do
-    GenericServer.call(@process_name, {:create_pledge, name, amount})
+    GenServer.call(@process_name, {:create_pledge, name, amount})
   end
 
   def recent_pledges() do
-    GenericServer.call(@process_name, :recent_pledges)
+    GenServer.call(@process_name, :recent_pledges)
   end
 
   def total_pledged() do
-    GenericServer.call(@process_name, :total_pledged)
+    GenServer.call(@process_name, :total_pledged)
   end
 
   def clear(pid, message) do
-    GenericServer.cast(pid, message)
+    GenServer.cast(pid, message)
   end
 
-  def handle_cast(:clear, _state) do
-    []
+  def set_cache_size(size) do
+    GenServer.cast(@process_name, {:set_cache_size, size})
   end
 
-  def handle_call(:total_pledged, state) do
-    total = state
+  #### init function : Genserver Contract
+  def init(state) do
+    pledges = fetch_recent_pledges()
+    {:ok, %{state | pledges: pledges }}
+  end
+
+  ### handle_cast and handle_call are required by the GenServer contract
+  def handle_cast(:clear, state) do
+    {:noreply, %{state | pledges: []}}
+  end
+
+  def handle_cast({:set_cache_size, size}, state) do
+    new_pledges = Enum.take(state.pledges, size)
+    new_state = %{state | pledges: new_pledges, cache_size: size }
+    {:noreply, new_state}
+  end
+
+
+
+  def handle_call(:total_pledged, _from, state) do
+    total = state.pledges
       |> Enum.map(fn {_ , amount} -> amount end)
       |> Enum.sum()
-    { total, state }
+    {:reply, total, state }
   end
 
-  def handle_call(:recent_pledges, state) do
-    {state, state}
+  def handle_call(:recent_pledges, _from, state) do
+    {:reply, state.pledges, state}
   end
 
-  def handle_call({:create_pledge, name, amount}, state) do
+  def handle_call({:create_pledge, name, amount}, _from, state) do
     {:ok, id} = send_pledge_to_service(name, amount)
-    most_recent = Enum.take(state, 2)
-    new_state = [ {name, amount} | most_recent ]
-    {id, new_state}
+    most_recent = Enum.take(state.pledges, state.cache_size - 1)
+    cached_pledges = [ {name, amount} | most_recent ]
+    new_state = %{state | pledges: cached_pledges}
+    {:reply, id, new_state}
   end
+
+  def handle_info(message, state) do
+    IO.puts("Can't touch this! #{inspect message}")
+    {:noreply, state}
+  end
+
+  ###### Internal module functions
 
   defp send_pledge_to_service(name, amount) do
     # {:ok, "pledge-#{:rand.uniform(1000)}"}
@@ -97,6 +87,10 @@ defmodule Servy.PledgeServer do
     {:ok, response} = HTTPoison.post(@url, body, headers)
     body = Poison.Parser.parse!(response.body, %{})
     {:ok, body["data"]["id"]}
+  end
+
+  def fetch_recent_pledges do
+    [{"Ali", 100}, {"Sam", 200}]
   end
 end
 

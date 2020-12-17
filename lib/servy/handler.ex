@@ -38,18 +38,11 @@ defmodule Servy.Handler do
   end
 
   def route(%Conv{method: "GET", path: "/sensors"} = conv) do
-    task = Task.async(fn -> Servy.Tracker.get_location("bigfoot") end)
 
-    snapshots =
-      ["cam-1", "cam-2", "cam-2"]
-        |> Enum.map(&Task.async(fn -> VideoCam.get_snapshot(&1) end))
-        |> Enum.map(&Task.await/1)
+    sensor_data = Servy.SensorServer.get_sensor_data()
 
-    location = Task.await(task)
-
-
-    # %{conv | status: 200, resp_body: inspect({snapshots, location})}
-    View.render(conv, "sensors.eex", snapshots: snapshots, location: location)
+    %{conv | status: 200, resp_body: inspect(sensor_data)}
+    # View.render(conv, "sensors.eex", snapshots: snapshots, location: location)
   end
 
   def route(%Conv{method: "GET", path: "/kaboom"} = _conv) do
