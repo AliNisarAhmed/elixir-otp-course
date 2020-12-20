@@ -3,8 +3,8 @@ defmodule Servy.FourOhFourCounter do
 
   @process_name :four_oh_four_counter
 
-  def start do
-    GenServer.start(__MODULE__, %{}, name: @process_name)
+  def start_link(_arg) do
+    GenServer.start_link(__MODULE__, %{}, name: @process_name)
   end
 
   def bump_count(route) do
